@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>text to speech</title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@latest/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
+  <style>
+    ::placeholder {
+      color: #aaa;
+    }
+    .layout {
+      display: flex;
+    }
+    .layout div {
+      width: 50%;
+      padding: 10px;
+    }
+    .layout input {
+      width: 250px;
+    }
+  </style>
+</head>
+<body>
+  <form id="form" method="POST" class="layout">
+    <div>
+      <textarea id="text" name="text" rows="20" style="width: 100%;" required placeholder="音声に変換したい文章を入力してください"></textarea>
+    </div>
+    <div>
+      <label for="speaker">音声</label><br/>
+      <select id="speaker" name="speaker">
+        <option value="ja-JP-NanamiNeural">Nanami(Neural) - 七海</option>
+        <option value="ja-JP-KeitaNeural">Keita(Neural) - 圭太</option>
+      </select><br/><br/>
+      <label for="rate">読み上げ速度：<output id="output1">1</output></label><br/>
+      <input type="range" id="rate" name="rate" value="1.00" min="0.00" max="3.00" step="0.01" oninput="document.getElementById('output1').value=this.value"><br/><br/>
+      <label for="pitch">ピッチ：<output id="output2">1</output></label><br/>
+      <input type="range" id="pitch" name="pitch" value="1.00" min="0.00" max="2.00" step="0.02" oninput="document.getElementById('output2').value=this.value"><br/><br/>
+      <label for="key">キー</label><br/>
+      <input type="text" id="key" name="key" required />
+      <button type="button" onclick="download()">ダウンロード</button>
+    </div>
+  </form>
+  <script>
+    var SpeechSDK;
+    const region = "westus2";
+
+    function synthesizeSpeech(text, speaker, rate, pitch, key) {
+      // SpeechKeyとRegionを設定
+      const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(key, region);
+      // 音声ファイルの出力形式を設定
+      speechConfig.speechSynthesisOutputFormat = SpeechSDK.SpeechSynthesisOutputFormat.Audio16Khz128KBitRateMonoMp3;
+      // 上記の設定でインスタンス作成
+      const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, undefined);
+
+      // ssml定義
+      const ssml = `<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US">
+        <voice name="${speaker}">
+          <prosody rate="${rate}" pitch="${pitch}">
+            ${text}
+          </prosody>
+        </voice></speak>`;
+      
+      // 音声変換
+      synthesizer.speakSsmlAsync(
+        ssml,
+        result => {
+          synthesizer.close();
+          if (result) {
+            const { audioData } = result;
+            const blob = new Blob([result.audioData], { type: 'audio/mpeg' });
+            const objectURL = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = objectURL;
+            link.download = 'output.mp3';
+            link.click();
+          }
+        },
+        error => {
+          console.log(error);
+          synthesizer.close();
+        }
+      )
+    }
+
+    function download() {
+      // バリデーションチェック
+      const form = document.getElementById('form');
+      if (!form.reportValidity()) return;
+
+      // 入力値を取得
+      const text = document.getElementById('text').value;
+      const key = document.getElementById('key').value;
+      const speaker = document.getElementById('speaker').value;
+      const rate = calcRate(document.getElementById('rate').value);
+      const pitch = calcPitch(document.getElementById('pitch').value);
+
+      synthesizeSpeech(text, speaker, rate, pitch, key);
+    }
+
+    function calcRate(value) {
+      const rate = value === "1" ? "1.00" : value === "2" ? "2.00" : value === "3" ? "3.00" : value;
+      const returnValue = (Number(rate.replace('.', '')) - 100) + '%';
+      return returnValue;
+    }
+    function calcPitch(value) {
+      const pitch = value === "1" ? "1.00" : value === "2" ? "2.00" : value;
+      const returnValue = ((Number(pitch.replace('.', '')) - 100) / 2) + '%';
+      return returnValue;
+    }
+  </script>
+</body>
+</html>
